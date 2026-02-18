@@ -1,5 +1,5 @@
 {
-  "name": "product-manager",
+  "name": "@tcanaud/product-manager",
   "version": "1.0.0",
   "type": "module",
   "description": "File-based product feedback intake, AI semantic triage, backlog management, and feature promotion pipeline for the kai governance stack.",

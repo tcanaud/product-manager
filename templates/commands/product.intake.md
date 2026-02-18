@@ -27,8 +27,8 @@ Capture user feedback — either from free-text arguments or from files dropped 
 
 ### 1. Validate environment
 
-- Check that `.product/` directory exists. If not → **ERROR**: "Product directory not initialized. Run `npx product-manager init` first."
-- Check that `.product/_templates/feedback.tpl.md` exists. If not → **ERROR**: "Feedback template missing. Run `npx product-manager update` to restore templates."
+- Check that `.product/` directory exists. If not → **ERROR**: "Product directory not initialized. Run `npx @tcanaud/product-manager init` first."
+- Check that `.product/_templates/feedback.tpl.md` exists. If not → **ERROR**: "Feedback template missing. Run `npx @tcanaud/product-manager update` to restore templates."
 
 ### 2. Determine intake mode
 

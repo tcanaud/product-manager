@@ -29,7 +29,7 @@ export async function install(flags = []) {
   const projectRoot = process.cwd();
   const autoYes = flags.includes("--yes");
 
-  console.log("\n  product-manager v1.0.0\n");
+  console.log("\n  @tcanaud/product-manager v1.0.0\n");
 
   // ── Detect environment ──────────────────────────────
   const env = detect(projectRoot);
@@ -45,7 +45,7 @@ export async function install(flags = []) {
   if (existsSync(productDir) && !autoYes) {
     const answer = await ask("  .product/ already exists. Overwrite templates? (y/N) ");
     if (answer !== "y" && answer !== "yes") {
-      console.log("  Skipping. Use 'product-manager update' to update commands only.\n");
+      console.log("  Skipping. Use '@tcanaud/product-manager update' to update commands only.\n");
       return;
     }
   }

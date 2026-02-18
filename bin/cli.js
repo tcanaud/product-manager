@@ -9,9 +9,9 @@ const HELP = `
 product-manager — File-based product feedback & backlog system for the kai governance stack.
 
 Usage:
-  npx product-manager init      Scaffold .product/ directory and install slash commands
-  npx product-manager update    Update commands and templates without touching user data
-  npx product-manager help      Show this help message
+  npx @tcanaud/product-manager init      Scaffold .product/ directory and install slash commands
+  npx @tcanaud/product-manager update    Update commands and templates without touching user data
+  npx @tcanaud/product-manager help      Show this help message
 
 Options (init):
   --yes             Skip confirmation prompts
