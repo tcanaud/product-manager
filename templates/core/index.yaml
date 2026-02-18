@@ -1,0 +1,31 @@
+product_version: "1.0"
+updated: "{{generated}}"
+
+feedbacks:
+  total: 0
+  by_status:
+    new: 0
+    triaged: 0
+    excluded: 0
+    resolved: 0
+  by_category:
+    critical-bug: 0
+    bug: 0
+    optimization: 0
+    evolution: 0
+    new-feature: 0
+  items: []
+
+backlogs:
+  total: 0
+  by_status:
+    open: 0
+    in-progress: 0
+    done: 0
+    promoted: 0
+    cancelled: 0
+  items: []
+
+metrics:
+  feedback_to_backlog_rate: 0.0
+  backlog_to_feature_rate: 0.0

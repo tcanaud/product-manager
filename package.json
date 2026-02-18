@@ -1,0 +1,31 @@
+{
+  "name": "product-manager",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "File-based product feedback intake, AI semantic triage, backlog management, and feature promotion pipeline for the kai governance stack.",
+  "bin": {
+    "product-manager": "./bin/cli.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/"
+  ],
+  "keywords": [
+    "kai",
+    "product-management",
+    "feedback",
+    "triage",
+    "backlog",
+    "claude-code"
+  ],
+  "author": "Thibaud Canaud",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tcanaud/product-manager.git"
+  }
+}
