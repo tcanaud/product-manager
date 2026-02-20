@@ -1,51 +1,76 @@
-import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
+/**
+ * init command — Scaffold .product/ directory and install slash commands.
+ */
+
+import { mkdir, writeFile, copyFile, readdir, access } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
-import { detect } from "./detect.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TEMPLATES = join(__dirname, "..", "templates");
+const TEMPLATES_DIR = join(__dirname, "..", "templates");
 
-function copyTemplate(src, dest) {
-  const destDir = dirname(dest);
-  if (!existsSync(destDir)) {
-    mkdirSync(destDir, { recursive: true });
-  }
-  copyFileSync(src, dest);
-}
+const FEEDBACK_STATUSES = ["new", "triaged", "excluded", "resolved"];
+const BACKLOG_STATUSES = ["open", "in-progress", "done", "promoted", "cancelled"];
 
-function ask(question) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase());
-    });
-  });
-}
+const EMPTY_INDEX = `product_version: "1.0"
+updated: ""
 
-export async function install(flags = []) {
-  const projectRoot = process.cwd();
-  const autoYes = flags.includes("--yes");
+feedbacks:
+  total: 0
+  by_status:
+    new: 0
+    triaged: 0
+    excluded: 0
+    resolved: 0
+  by_category:
+    critical-bug: 0
+    bug: 0
+    optimization: 0
+    evolution: 0
+    new-feature: 0
+  items: []
 
-  console.log("\n  @tcanaud/product-manager v1.0.0\n");
+backlogs:
+  total: 0
+  by_status:
+    open: 0
+    in-progress: 0
+    done: 0
+    promoted: 0
+    cancelled: 0
+  items: []
+
+metrics:
+  feedback_to_backlog_rate: 0.00
+  backlog_to_feature_rate: 0.00
+`;
+
+/**
+ * @param {{ yes?: boolean }} options
+ */
+export async function init(options = {}) {
+  const cwd = process.cwd();
+  const productDir = join(cwd, ".product");
+
+  console.log("\n  @tcanaud/product-manager\n");
 
   // ── Detect environment ──────────────────────────────
-  const env = detect(projectRoot);
+  const hasProduct = existsSync(productDir);
+  const hasFeatures = existsSync(join(cwd, ".features"));
+  const hasClaudeCommands = existsSync(join(cwd, ".claude", "commands"));
 
   console.log("  Environment detected:");
-  console.log(`    .product/:        ${env.hasProduct ? "yes" : "no"}`);
-  console.log(`    .features/:       ${env.hasFeatures ? "yes" : "no"}`);
-  console.log(`    Claude commands:   ${env.hasClaudeCommands ? "yes" : "no"}`);
+  console.log(`    .product/:        ${hasProduct ? "yes" : "no"}`);
+  console.log(`    .features/:       ${hasFeatures ? "yes" : "no"}`);
+  console.log(`    Claude commands:   ${hasClaudeCommands ? "yes" : "no"}`);
   console.log();
 
-  const productDir = join(projectRoot, ".product");
-
-  if (existsSync(productDir) && !autoYes) {
-    const answer = await ask("  .product/ already exists. Overwrite templates? (y/N) ");
-    if (answer !== "y" && answer !== "yes") {
-      console.log("  Skipping. Use '@tcanaud/product-manager update' to update commands only.\n");
+  if (!options.yes) {
+    const confirmed = await confirm("  This will scaffold .product/ and install slash commands. Continue? (y/N) ");
+    if (!confirmed) {
+      console.log("  Aborted.");
       return;
     }
   }
@@ -53,85 +78,75 @@ export async function install(flags = []) {
   // ── Phase 1/3: Create .product/ directory structure ─
   console.log("  [1/3] Creating .product/ directory structure...");
 
-  const dirs = [
-    ".product/inbox",
-    ".product/feedbacks/new",
-    ".product/feedbacks/triaged",
-    ".product/feedbacks/excluded",
-    ".product/feedbacks/resolved",
-    ".product/backlogs/open",
-    ".product/backlogs/in-progress",
-    ".product/backlogs/done",
-    ".product/backlogs/promoted",
-    ".product/backlogs/cancelled",
-    ".product/_templates",
-  ];
-
-  for (const dir of dirs) {
-    const fullPath = join(projectRoot, dir);
-    if (!existsSync(fullPath)) {
-      mkdirSync(fullPath, { recursive: true });
-      console.log(`    create ${dir}/`);
-    }
+  for (const status of FEEDBACK_STATUSES) {
+    const dir = join(productDir, "feedbacks", status);
+    await mkdir(dir, { recursive: true });
+    console.log(`    create feedbacks/${status}/`);
   }
 
-  // Copy artifact templates
-  copyTemplate(
-    join(TEMPLATES, "core", "feedback.tpl.md"),
-    join(productDir, "_templates", "feedback.tpl.md")
-  );
-  console.log("    write .product/_templates/feedback.tpl.md");
+  for (const status of BACKLOG_STATUSES) {
+    const dir = join(productDir, "backlogs", status);
+    await mkdir(dir, { recursive: true });
+    console.log(`    create backlogs/${status}/`);
+  }
 
-  copyTemplate(
-    join(TEMPLATES, "core", "backlog.tpl.md"),
-    join(productDir, "_templates", "backlog.tpl.md")
-  );
-  console.log("    write .product/_templates/backlog.tpl.md");
+  // Create inbox directory
+  await mkdir(join(productDir, "inbox"), { recursive: true });
+  console.log("    create inbox/");
 
-  // Index
+  // Create _templates directory and copy artifact templates
+  await mkdir(join(productDir, "_templates"), { recursive: true });
+  try {
+    await copyFile(
+      join(TEMPLATES_DIR, "core", "feedback.tpl.md"),
+      join(productDir, "_templates", "feedback.tpl.md")
+    );
+    console.log("    write .product/_templates/feedback.tpl.md");
+    await copyFile(
+      join(TEMPLATES_DIR, "core", "backlog.tpl.md"),
+      join(productDir, "_templates", "backlog.tpl.md")
+    );
+    console.log("    write .product/_templates/backlog.tpl.md");
+  } catch (err) {
+    console.log("    note: could not copy artifact templates:", err.message);
+  }
+
+  // Write initial index.yaml if it doesn't exist
   const indexPath = join(productDir, "index.yaml");
-  if (existsSync(indexPath)) {
+  try {
+    await access(indexPath);
     console.log("    skip .product/index.yaml (already exists)");
-  } else {
-    const template = readFileSync(join(TEMPLATES, "core", "index.yaml"), "utf-8");
-    const content = template.replace("{{generated}}", new Date().toISOString());
-    writeFileSync(indexPath, content);
+  } catch {
+    await writeFile(indexPath, EMPTY_INDEX, "utf-8");
     console.log("    write .product/index.yaml");
   }
 
   // ── Phase 2/3: Install Claude Code commands ─────────
   console.log("  [2/3] Installing Claude Code commands...");
+  const commandsDir = join(cwd, ".claude", "commands");
+  await mkdir(commandsDir, { recursive: true });
 
-  if (!env.hasClaudeCommands) {
-    mkdirSync(join(projectRoot, ".claude", "commands"), { recursive: true });
-    console.log("    create .claude/commands/");
-  }
-
-  const commandMappings = [
-    ["commands/product.intake.md", ".claude/commands/product.intake.md"],
-    ["commands/product.triage.md", ".claude/commands/product.triage.md"],
-    ["commands/product.backlog.md", ".claude/commands/product.backlog.md"],
-    ["commands/product.promote.md", ".claude/commands/product.promote.md"],
-    ["commands/product.check.md", ".claude/commands/product.check.md"],
-    ["commands/product.dashboard.md", ".claude/commands/product.dashboard.md"],
-  ];
-
-  for (const [src, dest] of commandMappings) {
-    const srcPath = join(TEMPLATES, src);
-    if (existsSync(srcPath)) {
-      copyTemplate(srcPath, join(projectRoot, dest));
-      console.log(`    write ${dest}`);
+  try {
+    const commandsTemplateDir = join(TEMPLATES_DIR, "commands");
+    const templates = await readdir(commandsTemplateDir);
+    for (const template of templates) {
+      if (!template.endsWith(".md")) continue;
+      const src = join(commandsTemplateDir, template);
+      const dest = join(commandsDir, template);
+      await copyFile(src, dest);
+      console.log(`    write .claude/commands/${template}`);
     }
+  } catch (err) {
+    console.error(`    Warning: Could not read templates: ${err.message}`);
   }
 
   // ── Phase 3/3: Summary ─────────────────────────────
   console.log("  [3/3] Verifying installation...");
 
-  if (!env.hasFeatures) {
+  if (!hasFeatures) {
     console.log("    note: .features/ not found — /product.promote requires the feature lifecycle system");
   }
 
-  // ── Done ────────────────────────────────────────────
   console.log();
   console.log("  Done! Product Manager installed.");
   console.log();
@@ -140,4 +155,17 @@ export async function install(flags = []) {
   console.log("    2. Run /product.triage to process new feedbacks into backlogs");
   console.log("    3. Run /product.dashboard for a health overview");
   console.log();
+}
+
+/**
+ * Simple yes/no prompt.
+ */
+async function confirm(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes");
+    });
+  });
 }

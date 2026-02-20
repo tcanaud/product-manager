@@ -1,60 +1,64 @@
-import { existsSync, copyFileSync, mkdirSync } from "node:fs";
+/**
+ * update command — Refresh slash commands and artifact templates without modifying .product/ data.
+ */
+
+import { mkdir, copyFile, readdir, access } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const TEMPLATES = join(__dirname, "..", "templates");
+const TEMPLATES_DIR = join(__dirname, "..", "templates");
 
-function copyTemplate(src, dest) {
-  const destDir = dirname(dest);
-  if (!existsSync(destDir)) {
-    mkdirSync(destDir, { recursive: true });
-  }
-  copyFileSync(src, dest);
-}
-
-export function update(flags = []) {
-  const projectRoot = process.cwd();
+export async function update() {
+  const cwd = process.cwd();
+  const productDir = join(cwd, ".product");
 
   console.log("\n  product-manager update\n");
 
-  if (!existsSync(join(projectRoot, ".product"))) {
+  // Guard: .product/ must exist
+  try {
+    await access(productDir);
+  } catch {
     console.error("  Error: .product/ not found. Run 'product-manager init' first.");
     process.exit(1);
   }
 
   // Update artifact templates
-  console.log("  Updating templates...");
-  copyTemplate(
-    join(TEMPLATES, "core", "feedback.tpl.md"),
-    join(projectRoot, ".product", "_templates", "feedback.tpl.md")
-  );
-  console.log("    update .product/_templates/feedback.tpl.md");
-
-  copyTemplate(
-    join(TEMPLATES, "core", "backlog.tpl.md"),
-    join(projectRoot, ".product", "_templates", "backlog.tpl.md")
-  );
-  console.log("    update .product/_templates/backlog.tpl.md");
+  console.log("  Updating artifact templates...");
+  try {
+    await mkdir(join(productDir, "_templates"), { recursive: true });
+    await copyFile(
+      join(TEMPLATES_DIR, "core", "feedback.tpl.md"),
+      join(productDir, "_templates", "feedback.tpl.md")
+    );
+    console.log("    update .product/_templates/feedback.tpl.md");
+    await copyFile(
+      join(TEMPLATES_DIR, "core", "backlog.tpl.md"),
+      join(productDir, "_templates", "backlog.tpl.md")
+    );
+    console.log("    update .product/_templates/backlog.tpl.md");
+  } catch (err) {
+    console.log("    note: could not update artifact templates:", err.message);
+  }
 
   // Update Claude Code commands
   console.log("  Updating Claude Code commands...");
+  const commandsDir = join(cwd, ".claude", "commands");
+  await mkdir(commandsDir, { recursive: true });
 
-  const commandMappings = [
-    ["commands/product.intake.md", ".claude/commands/product.intake.md"],
-    ["commands/product.triage.md", ".claude/commands/product.triage.md"],
-    ["commands/product.backlog.md", ".claude/commands/product.backlog.md"],
-    ["commands/product.promote.md", ".claude/commands/product.promote.md"],
-    ["commands/product.check.md", ".claude/commands/product.check.md"],
-    ["commands/product.dashboard.md", ".claude/commands/product.dashboard.md"],
-  ];
-
-  for (const [src, dest] of commandMappings) {
-    const srcPath = join(TEMPLATES, src);
-    if (existsSync(srcPath)) {
-      copyTemplate(srcPath, join(projectRoot, dest));
-      console.log(`    update ${dest}`);
+  try {
+    const commandsTemplateDir = join(TEMPLATES_DIR, "commands");
+    const templates = await readdir(commandsTemplateDir);
+    for (const template of templates) {
+      if (!template.endsWith(".md")) continue;
+      const src = join(commandsTemplateDir, template);
+      const dest = join(commandsDir, template);
+      await copyFile(src, dest);
+      console.log(`    update .claude/commands/${template}`);
     }
+  } catch (err) {
+    console.error(`  Error: Could not read templates: ${err.message}`);
+    process.exit(1);
   }
 
   console.log();
